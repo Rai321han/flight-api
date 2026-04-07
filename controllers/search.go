@@ -21,10 +21,10 @@ func (c *SearchController) SearchFlights() {
 		return
 	}
 
-	results, _, err := c.FlightSvc.SearchFlights(filters)
+	results, total, err := c.FlightSvc.SearchFlights(filters)
 	if err != nil {
 		utils.WriteError(&c.Controller, 500, "internal server error", nil)
 		return
 	}
-	utils.WriteData(&c.Controller, 200, results)
+	utils.WriteData(&c.Controller, 200, map[string]any{"flights": results, "total": total})
 }
