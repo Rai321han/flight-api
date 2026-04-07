@@ -6,35 +6,10 @@ import (
 	"strings"
 	"time"
 
+	"flight-api/models"
+
 	beego "github.com/beego/beego/v2/server/web"
 )
-
-// FlightFilters holds all validated, type-coerced query parameters.
-// Pointer fields mean "not provided" when nil.
-type FlightFilters struct {
-	Carrier         *string
-	FlightNum       *string
-	DestCountry     *string
-	OriginCountry   *string
-	DestCity        *string
-	OriginCity      *string
-	DateFrom        *time.Time
-	DateTo          *time.Time
-	PriceMin        *float64
-	PriceMax        *float64
-	Cancelled       *bool
-	DestAirportID   *string
-	OriginAirportID *string
-	DestAirport     *string
-	OriginAirport   *string
-	DestLat         *float64
-	DestLon         *float64
-	OriginLat       *float64
-	OriginLon       *float64
-	SortBy          string
-	Order           string
-	Limit           int
-}
 
 const (
 	defaultSortBy = "timestamp"
@@ -50,33 +25,12 @@ var allowedSortFields = map[string]bool{
 	"timestamp":      true,
 }
 
-type MockFlightService struct{}
-
-func NewMockFlightService() *MockFlightService {
-	return &MockFlightService{}
-}
-
-func (m *MockFlightService) SearchFlights(query *FlightFilters) ([]Flight, error) {
-	// Fake data so controller can run
-	return []Flight{
-		{Name: "Kibana-Airlines FX123", Price: 450},
-		{Name: "Elastic-Air EA456", Price: 380},
-		{Name: "Logstash-Jet LJ789", Price: 520},
-	}, nil
-}
-
-type Flight struct {
-	Name  string
-	Price float64
-}
-
 type SearchController struct {
 	beego.Controller
+	FlightSvc models.FlightService
 }
 
-// SearchFlights handles GET /api/v1/search requests.
-// It parses and validates query parameters, then delegates to the FlightService to perform the search.
-// Finally, it returns JSON responses with appropriate status codes or error messages.
+// SearchFlights handles GET /flight-api/v1/search
 func (c *SearchController) SearchFlights() {
 	filters, validationErrs := ParseAndValidateFlightFilters(c.Ctx.Request.URL.Query().Get)
 	if len(validationErrs) > 0 {
@@ -89,7 +43,7 @@ func (c *SearchController) SearchFlights() {
 		return
 	}
 
-	results, err := NewMockFlightService().SearchFlights(filters)
+	results, total, err := c.FlightSvc.SearchFlights(filters)
 	if err != nil {
 		c.Ctx.Output.SetStatus(500)
 		c.Data["json"] = map[string]any{
@@ -101,24 +55,23 @@ func (c *SearchController) SearchFlights() {
 
 	c.Ctx.Output.SetStatus(200)
 	c.Data["json"] = map[string]any{
-		"data": results,
+		"total": total,
+		"count": len(results),
+		"data":  results,
 	}
 	c.ServeJSON()
 }
 
-// ParseAndValidateFlightFilters is decoupled from beego's Controller so it is
-// directly unit-testable without spinning up an HTTP server.
-// getParam mirrors url.Values.Get — pass c.Ctx.Request.URL.Query().Get in production,
-// or a map lookup func in tests.
-func ParseAndValidateFlightFilters(getParam func(string) string) (*FlightFilters, []string) {
+// ParseAndValidateFlightFilters parses and validates all query parameters.
+func ParseAndValidateFlightFilters(getParam func(string) string) (*models.FlightFilters, []string) {
 	var errs []string
-	f := &FlightFilters{
+	f := &models.FlightFilters{
 		SortBy: defaultSortBy,
 		Order:  defaultOrder,
 		Limit:  defaultLimit,
 	}
 
-	// --- String fields (no format constraint, just trimming) ---
+	// --- String fields ---
 	f.Carrier = optionalString(getParam("carrier"))
 	f.FlightNum = optionalString(getParam("flightNum"))
 	f.DestCountry = optionalString(getParam("destCountry"))
@@ -247,9 +200,6 @@ func optionalString(v string) *string {
 	return &v
 }
 
-// parseOptionalFloat parses a float from a raw string and validates it is within
-// [min, max] when max > min. Returns (value, wasProvided).
-// minVal/maxVal: pass equal values (e.g. 0,0 or -1,-1) to skip range check.
 func parseOptionalFloat(raw, field string, minVal, maxVal float64, errs *[]string) (*float64, bool) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
