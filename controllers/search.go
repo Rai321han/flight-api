@@ -8,12 +8,6 @@ import (
 	beego "github.com/beego/beego/v2/server/web"
 )
 
-// allowedSortFields restricts sortBy to known ES fields, preventing injection.
-var allowedSortFields = map[string]bool{
-	"AvgTicketPrice": true,
-	"timestamp":      true,
-}
-
 type SearchController struct {
 	beego.Controller
 	FlightSvc models.FlightService
