@@ -7,7 +7,7 @@ import (
 )
 
 func init() {
-	ns := beego.NewNamespace("/api/v1",
+	ns := beego.NewNamespace("/flight-api/v1",
 		beego.NSRouter("/search", &controllers.SearchController{}, "get:SearchFlights"),
 	)
 
