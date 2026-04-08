@@ -7,7 +7,6 @@ const flightIndex = "kibana_sample_data_flights"
 func BuildSearchRequest(f *models.FlightFilters) map[string]any {
 	filter := []map[string]any{}
 
-	// (ALL YOUR EXISTING FILTER LOGIC REMAINS UNCHANGED)
 
 	query := map[string]any{}
 	if len(filter) > 0 {
