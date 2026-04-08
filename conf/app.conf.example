@@ -1,0 +1,6 @@
+appname = flight-api
+httpport = 8080
+runmode = dev
+ 
+# Elasticsearch
+es.host     = http://localhost:9200
