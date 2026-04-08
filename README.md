@@ -42,22 +42,18 @@ appname = flight-api
 httpport = 8080
 runmode = dev
 ```
-### 4. Rename sample compose file and edit values
-```bash
-mv docker-compose.yml.example docker-compose.yml
-```
-### 5. Start Elasticsearch and Kibana
+### 4. Start Elasticsearch and Kibana
 ```bash
 docker compose up -d
 ```
 This uses `docker-compose.yml` and starts:
 - Elasticsearch on `http://localhost:9200`
 - Kibana on `http://localhost:5601`
-### 6. Install Go dependencies
+### 5. Install Go dependencies
 ```bash
 go mod download
 ```
-### 7. Run the API
+### 6. Run the API
 ```bash
 go run main.go
 ```
