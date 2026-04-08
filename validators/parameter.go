@@ -148,7 +148,6 @@ func parsePaginationFilters(f *models.FlightFilters, getParam func(string) strin
 	}
 }
 
-// helpers
 func optionalString(v string) *string {
 	v = strings.TrimSpace(v)
 	if v == "" {
