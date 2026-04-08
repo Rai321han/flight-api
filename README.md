@@ -64,35 +64,3 @@ curl -s "http://localhost:8080/flight-api/v1/search?priceMin=500&priceMax=100" |
 # Validation — bad date
 curl -s "http://localhost:8080/flight-api/v1/search?dateFrom=99-99-9999" | jq .
 ```
-
-
-## Test Aggregation Quesries
- 
-```bash
-# All aggregations — no filters
-curl -s "http://localhost:8080/flight-api/v1/aggregations" | jq .
-
-# Aggregations filtered to a specific carrier
-curl -s "http://localhost:8080/flight-api/v1/aggregations?carrier=Kibana%20Airlines" | jq .
-
-# Aggregations for non-cancelled US-bound flights
-curl -s "http://localhost:8080/flight-api/v1/aggregations?destCountry=US&cancelled=false" | jq .
-
-# Aggregations in a date range
-curl -s "http://localhost:8080/flight-api/v1/aggregations?dateFrom=2024-01-01&dateTo=2024-03-31" | jq .
-
-# Aggregations with price range filter
-curl -s "http://localhost:8080/flight-api/v1/aggregations?priceMin=200&priceMax=800" | jq .
-
-# Only avg price per carrier from the response
-curl -s "http://localhost:8080/flight-api/v1/aggregations" | jq '.data.avgPricePerCarrier'
-
-# Only top routes
-curl -s "http://localhost:8080/flight-api/v1/aggregations" | jq '.data.topRoutes'
-
-# Only flights per day
-curl -s "http://localhost:8080/flight-api/v1/aggregations" | jq '.data.flightsPerDay'
-
-# Validation error still works
-curl -s "http://localhost:8080/flight-api/v1/aggregations?priceMin=500&priceMax=100" | jq .
-```
