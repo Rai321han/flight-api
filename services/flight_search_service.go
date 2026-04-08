@@ -28,12 +28,12 @@ func (s *FlightSearchService) SearchFlights(
 
 	client, err := GetESClient()
 	if err != nil {
-		return nil, 0, fmt.Errorf("failed to get ES client: %w", err)
+		return nil, 0, models.NewAppError(503, "search backend unavailable", err)
 	}
 
 	bodyBytes, err := json.Marshal(BuildSearchRequest(filters))
 	if err != nil {
-		return nil, 0, fmt.Errorf("failed to serialise query: %w", err)
+		return nil, 0, models.NewAppError(500, "failed to build search query", err)
 	}
 
 	log.Printf("[FlightSearchService] query → %s", string(bodyBytes))
@@ -48,22 +48,22 @@ func (s *FlightSearchService) SearchFlights(
 		client.Search.WithTrackTotalHits(true),
 	)
 	if err != nil {
-		return nil, 0, fmt.Errorf("elasticsearch search error: %w", err)
+		return nil, 0, models.NewAppError(502, "search backend request failed", err)
 	}
 	defer res.Body.Close()
 
 	rawBody, err := io.ReadAll(res.Body)
 	if err != nil {
-		return nil, 0, fmt.Errorf("failed to read ES response body: %w", err)
+		return nil, 0, models.NewAppError(502, "search backend response read failed", err)
 	}
 
 	if res.IsError() {
-		return nil, 0, fmt.Errorf("ES returned HTTP %s: %s", res.Status(), string(rawBody))
+		return nil, 0, models.NewAppError(502, "search backend returned an error", fmt.Errorf("ES returned HTTP %s", res.Status()))
 	}
 
 	var esResp esSearchResponse
 	if err := json.Unmarshal(rawBody, &esResp); err != nil {
-		return nil, 0, fmt.Errorf("failed to decode ES response: %w", err)
+		return nil, 0, models.NewAppError(502, "search backend response decode failed", err)
 	}
 
 	results := make([]map[string]any, 0, len(esResp.Hits.Hits))
