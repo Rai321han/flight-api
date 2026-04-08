@@ -23,7 +23,7 @@ func (c *SearchController) SearchFlights() {
 	)
 
 	if len(validationErrs) > 0 {
-		utils.WriteError(&c.Controller, 400, "invalid query parameters")
+		utils.WriteError(&c.Controller, 400, validationErrs[0])
 		return
 	}
 
