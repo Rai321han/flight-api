@@ -23,7 +23,7 @@ var allowedParams = map[string]bool{
 	"dateFrom": true, "dateTo": true,
 	"priceMin": true, "priceMax": true,
 	"cancelled": true,
-	"destLat": true, "destLon": true,
+	"destLat":   true, "destLon": true,
 	"originLat": true, "originLon": true,
 	"sortBy": true, "order": true,
 	"limit": true, "page": true,
@@ -38,19 +38,11 @@ const (
 	dateLayout    = "2006-01-02"
 )
 
-
 func ParseAndValidateFlightFilters(
 	getParam func(string) string,
 	query url.Values,
 ) (*models.FlightFilters, []string) {
-
-	var errs []string
-
-	for key := range query {
-		if !allowedParams[key] {
-			errs = append(errs, fmt.Sprintf("unsupported parameter: %s", key))
-		}
-	}
+	errs := validateAllowedQueryParams(query)
 
 	f := &models.FlightFilters{
 		SortBy: defaultSortBy,
@@ -59,7 +51,28 @@ func ParseAndValidateFlightFilters(
 		Page:   defaultPage,
 	}
 
-	
+	applyStringFilters(f, getParam)
+	parseDateFilters(f, getParam, &errs)
+	parsePriceFilters(f, getParam, &errs)
+	parsePaginationFilters(f, getParam, &errs)
+
+	if len(errs) > 0 {
+		return nil, errs
+	}
+	return f, nil
+}
+
+func validateAllowedQueryParams(query url.Values) []string {
+	var errs []string
+	for key := range query {
+		if !allowedParams[key] {
+			errs = append(errs, fmt.Sprintf("unsupported parameter: %s", key))
+		}
+	}
+	return errs
+}
+
+func applyStringFilters(f *models.FlightFilters, getParam func(string) string) {
 	f.Carrier = optionalString(getParam("carrier"))
 	f.FlightNum = optionalString(getParam("flightNum"))
 	f.DestCountry = optionalString(getParam("destCountry"))
@@ -70,69 +83,72 @@ func ParseAndValidateFlightFilters(
 	f.OriginAirportID = optionalString(getParam("originAirportID"))
 	f.DestAirport = optionalString(getParam("destAirport"))
 	f.OriginAirport = optionalString(getParam("originAirport"))
+}
 
+func parseDateFilters(f *models.FlightFilters, getParam func(string) string, errs *[]string) {
 	if v := getParam("dateFrom"); v != "" {
 		t, err := time.Parse(dateLayout, v)
 		if err != nil {
-			errs = append(errs, "dateFrom: must be in YYYY-MM-DD format")
+			*errs = append(*errs, "dateFrom: must be in YYYY-MM-DD format")
 		} else {
 			f.DateFrom = &t
 		}
 	}
+
 	if v := getParam("dateTo"); v != "" {
 		t, err := time.Parse(dateLayout, v)
 		if err != nil {
-			errs = append(errs, "dateTo: must be in YYYY-MM-DD format")
+			*errs = append(*errs, "dateTo: must be in YYYY-MM-DD format")
 		} else {
 			f.DateTo = &t
 		}
 	}
-	if f.DateFrom != nil && f.DateTo != nil && f.DateTo.Before(*f.DateFrom) {
-		errs = append(errs, "dateTo: must be on or after dateFrom")
-	}
 
-	f.PriceMin, _ = parseOptionalFloat(getParam("priceMin"), "priceMin", 0, -1, &errs)
-	f.PriceMax, _ = parseOptionalFloat(getParam("priceMax"), "priceMax", 0, -1, &errs)
+	if f.DateFrom != nil && f.DateTo != nil && f.DateTo.Before(*f.DateFrom) {
+		*errs = append(*errs, "dateTo: must be on or after dateFrom")
+	}
+}
+
+func parsePriceFilters(f *models.FlightFilters, getParam func(string) string, errs *[]string) {
+	f.PriceMin, _ = parseOptionalFloat(getParam("priceMin"), "priceMin", 0, -1, errs)
+	f.PriceMax, _ = parseOptionalFloat(getParam("priceMax"), "priceMax", 0, -1, errs)
+
 	if f.PriceMin != nil && *f.PriceMin < 0 {
-		errs = append(errs, "priceMin: must be >= 0")
+		*errs = append(*errs, "priceMin: must be >= 0")
 		f.PriceMin = nil
 	}
 	if f.PriceMax != nil && *f.PriceMax < 0 {
-		errs = append(errs, "priceMax: must be >= 0")
+		*errs = append(*errs, "priceMax: must be >= 0")
 		f.PriceMax = nil
 	}
 	if f.PriceMin != nil && f.PriceMax != nil && *f.PriceMax < *f.PriceMin {
-		errs = append(errs, "priceMax: must be >= priceMin")
+		*errs = append(*errs, "priceMax: must be >= priceMin")
 	}
+}
 
+func parsePaginationFilters(f *models.FlightFilters, getParam func(string) string, errs *[]string) {
 	if v := getParam("limit"); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil || n <= 0 {
-			errs = append(errs, "limit: must be a positive integer")
+			*errs = append(*errs, "limit: must be a positive integer")
 		} else if n > maxLimit {
-			errs = append(errs, fmt.Sprintf("limit: must not exceed %d", maxLimit))
+			*errs = append(*errs, fmt.Sprintf("limit: must not exceed %d", maxLimit))
 		} else {
 			f.Limit = n
 		}
 	}
 
-	// page
 	if v := getParam("page"); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil || n <= 0 {
-			errs = append(errs, "page: must be a positive integer")
+			*errs = append(*errs, "page: must be a positive integer")
 		} else {
 			f.Page = n
 		}
 	}
-
-	if len(errs) > 0 {
-		return nil, errs
-	}
-	return f, nil
 }
 
-// helpers 
+// helpers
 func optionalString(v string) *string {
 	v = strings.TrimSpace(v)
 	if v == "" {
