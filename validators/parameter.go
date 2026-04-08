@@ -55,6 +55,7 @@ func ParseAndValidateFlightFilters(
 	parseDateFilters(f, getParam, &errs)
 	parsePriceFilters(f, getParam, &errs)
 	parsePaginationFilters(f, getParam, &errs)
+	parseSortAndOrder(f, getParam, &errs)
 
 	if len(errs) > 0 {
 		return nil, errs
@@ -83,6 +84,25 @@ func applyStringFilters(f *models.FlightFilters, getParam func(string) string) {
 	f.OriginAirportID = optionalString(getParam("originAirportID"))
 	f.DestAirport = optionalString(getParam("destAirport"))
 	f.OriginAirport = optionalString(getParam("originAirport"))
+}
+
+func parseSortAndOrder(f *models.FlightFilters, getParam func(string) string, errs *[]string) {
+	if v := getParam("sortBy"); v != "" {
+		if !allowedSortFields[v] {
+			*errs = append(*errs, fmt.Sprintf("sortBy: unsupported sort field '%s'", v))
+		} else {
+			f.SortBy = v
+		}
+	}
+
+	if v := getParam("order"); v != "" {
+		v = strings.ToLower(v)
+		if v != "asc" && v != "desc" {
+			*errs = append(*errs, "order: must be 'asc' or 'desc'")
+		} else {
+			f.Order = v
+		}
+	}
 }
 
 func parseDateFilters(f *models.FlightFilters, getParam func(string) string, errs *[]string) {
@@ -114,15 +134,15 @@ func parsePriceFilters(f *models.FlightFilters, getParam func(string) string, er
 	f.PriceMax, _ = parseOptionalFloat(getParam("priceMax"), "priceMax", 0, -1, errs)
 
 	if f.PriceMin != nil && *f.PriceMin < 0 {
-		*errs = append(*errs, "priceMin: must be >= 0")
+		*errs = append(*errs, "priceMin: must be greater than 0")
 		f.PriceMin = nil
 	}
 	if f.PriceMax != nil && *f.PriceMax < 0 {
-		*errs = append(*errs, "priceMax: must be >= 0")
+		*errs = append(*errs, "priceMax: must be greater than 0")
 		f.PriceMax = nil
 	}
 	if f.PriceMin != nil && f.PriceMax != nil && *f.PriceMax < *f.PriceMin {
-		*errs = append(*errs, "priceMax: must be >= priceMin")
+		*errs = append(*errs, "priceMax: must be greater than priceMin")
 	}
 }
 
