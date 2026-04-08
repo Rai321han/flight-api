@@ -7,7 +7,7 @@ const flightIndex = "kibana_sample_data_flights"
 func BuildSearchRequest(f *models.FlightFilters) map[string]any {
 	filter := []map[string]any{}
 
-	// (filters unchanged...)
+	// (ALL YOUR EXISTING FILTER LOGIC REMAINS UNCHANGED)
 
 	query := map[string]any{}
 	if len(filter) > 0 {
@@ -25,7 +25,7 @@ func BuildSearchRequest(f *models.FlightFilters) map[string]any {
 		order = "asc"
 	}
 
-	// pagination logic
+    // Pagination
 	from := (f.Page - 1) * f.Limit
 	if from < 0 {
 		from = 0

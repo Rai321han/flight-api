@@ -3,38 +3,63 @@ package validators
 import (
 	"flight-api/models"
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
 )
 
-// allowedSortFields restricts sortBy to known ES fields, preventing injection.
 var allowedSortFields = map[string]bool{
 	"AvgTicketPrice": true,
 	"timestamp":      true,
+}
+
+var allowedParams = map[string]bool{
+	"carrier": true, "flightNum": true,
+	"destCountry": true, "originCountry": true,
+	"destCity": true, "originCity": true,
+	"destAirportID": true, "originAirportID": true,
+	"destAirport": true, "originAirport": true,
+	"dateFrom": true, "dateTo": true,
+	"priceMin": true, "priceMax": true,
+	"cancelled": true,
+	"destLat": true, "destLon": true,
+	"originLat": true, "originLon": true,
+	"sortBy": true, "order": true,
+	"limit": true, "page": true,
 }
 
 const (
 	defaultSortBy = "timestamp"
 	defaultOrder  = "asc"
 	defaultLimit  = 10
+	defaultPage   = 1
 	maxLimit      = 1000
 	dateLayout    = "2006-01-02"
 )
 
-// ParseAndValidateFlightFilters parses and validates all query parameters.
-// getParam mirrors url.Values.Get — pass c.Ctx.Request.URL.Query().Get in production,
-// or a map lookup func in tests.
-func ParseAndValidateFlightFilters(getParam func(string) string) (*models.FlightFilters, []string) {
+
+func ParseAndValidateFlightFilters(
+	getParam func(string) string,
+	query url.Values,
+) (*models.FlightFilters, []string) {
+
 	var errs []string
+
+	for key := range query {
+		if !allowedParams[key] {
+			errs = append(errs, fmt.Sprintf("unsupported parameter: %s", key))
+		}
+	}
+
 	f := &models.FlightFilters{
 		SortBy: defaultSortBy,
 		Order:  defaultOrder,
 		Limit:  defaultLimit,
-		Page:   1, // default page
+		Page:   defaultPage,
 	}
 
-	// --- String fields ---
+	
 	f.Carrier = optionalString(getParam("carrier"))
 	f.FlightNum = optionalString(getParam("flightNum"))
 	f.DestCountry = optionalString(getParam("destCountry"))
@@ -46,7 +71,6 @@ func ParseAndValidateFlightFilters(getParam func(string) string) (*models.Flight
 	f.DestAirport = optionalString(getParam("destAirport"))
 	f.OriginAirport = optionalString(getParam("originAirport"))
 
-	// --- Date fields ---
 	if v := getParam("dateFrom"); v != "" {
 		t, err := time.Parse(dateLayout, v)
 		if err != nil {
@@ -67,7 +91,6 @@ func ParseAndValidateFlightFilters(getParam func(string) string) (*models.Flight
 		errs = append(errs, "dateTo: must be on or after dateFrom")
 	}
 
-	// --- Price fields ---
 	f.PriceMin, _ = parseOptionalFloat(getParam("priceMin"), "priceMin", 0, -1, &errs)
 	f.PriceMax, _ = parseOptionalFloat(getParam("priceMax"), "priceMax", 0, -1, &errs)
 	if f.PriceMin != nil && *f.PriceMin < 0 {
@@ -82,60 +105,6 @@ func ParseAndValidateFlightFilters(getParam func(string) string) (*models.Flight
 		errs = append(errs, "priceMax: must be >= priceMin")
 	}
 
-	// --- Bool field ---
-	if v := getParam("cancelled"); v != "" {
-		b, err := strconv.ParseBool(v)
-		if err != nil {
-			errs = append(errs, "cancelled: must be 'true' or 'false'")
-		} else {
-			f.Cancelled = &b
-		}
-	}
-
-	// --- Geo fields: dest ---
-	destLat, destLatOk := parseOptionalFloat(getParam("destLat"), "destLat", -90, 90, &errs)
-	destLon, destLonOk := parseOptionalFloat(getParam("destLon"), "destLon", -180, 180, &errs)
-	if destLatOk != destLonOk {
-		errs = append(errs, "destLat and destLon must both be provided together or not at all")
-	} else {
-		f.DestLat = destLat
-		f.DestLon = destLon
-	}
-
-	// --- Geo fields: origin ---
-	originLat, originLatOk := parseOptionalFloat(getParam("originLat"), "originLat", -90, 90, &errs)
-	originLon, originLonOk := parseOptionalFloat(getParam("originLon"), "originLon", -180, 180, &errs)
-	if originLatOk != originLonOk {
-		errs = append(errs, "originLat and originLon must both be provided together or not at all")
-	} else {
-		f.OriginLat = originLat
-		f.OriginLon = originLon
-	}
-
-	// --- sortBy ---
-	if v := getParam("sortBy"); v != "" {
-		if !allowedSortFields[v] {
-			allowed := make([]string, 0, len(allowedSortFields))
-			for k := range allowedSortFields {
-				allowed = append(allowed, k)
-			}
-			errs = append(errs, fmt.Sprintf("sortBy: must be one of [%s]", strings.Join(allowed, ", ")))
-		} else {
-			f.SortBy = v
-		}
-	}
-
-	// --- order ---
-	if v := getParam("order"); v != "" {
-		v = strings.ToLower(v)
-		if v != "asc" && v != "desc" {
-			errs = append(errs, "order: must be 'asc' or 'desc'")
-		} else {
-			f.Order = v
-		}
-	}
-
-	// --- limit ---
 	if v := getParam("limit"); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil || n <= 0 {
@@ -147,7 +116,7 @@ func ParseAndValidateFlightFilters(getParam func(string) string) (*models.Flight
 		}
 	}
 
-	// --- page ---
+	// page
 	if v := getParam("page"); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil || n <= 0 {
@@ -163,7 +132,7 @@ func ParseAndValidateFlightFilters(getParam func(string) string) (*models.Flight
 	return f, nil
 }
 
-// --- helpers ---
+// helpers 
 func optionalString(v string) *string {
 	v = strings.TrimSpace(v)
 	if v == "" {
