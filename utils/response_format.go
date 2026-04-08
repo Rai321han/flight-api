@@ -4,10 +4,18 @@ import (
 	beego "github.com/beego/beego/v2/server/web"
 )
 
-func WriteError(c *beego.Controller, status int, message string) {
+type APIError struct {
+	Message string   `json:"message"`
+	Details []string `json:"details,omitempty"`
+}
+
+func WriteError(c *beego.Controller, status int, message string, details []string) {
 	c.Ctx.Output.SetStatus(status)
 	c.Data["json"] = map[string]any{
-		"error": message,
+		"error": APIError{
+			Message: message,
+			Details: details,
+		},
 	}
 	c.ServeJSON()
 }

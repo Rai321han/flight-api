@@ -25,4 +25,5 @@ type FlightFilters struct {
 	SortBy          string
 	Order           string
 	Limit           int
+	Page            int
 }
