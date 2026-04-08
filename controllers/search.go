@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"errors"
 	"flight-api/models"
 	"flight-api/utils"
 	"flight-api/validators"
@@ -22,20 +23,31 @@ func (c *SearchController) SearchFlights() {
 	)
 
 	if len(validationErrs) > 0 {
-		utils.WriteError(&c.Controller, 400, "invalid query parameters", validationErrs)
+		utils.WriteError(&c.Controller, 400, "invalid query parameters")
 		return
 	}
 
 	results, total, err := c.FlightSvc.SearchFlights(filters)
 	if err != nil {
-		utils.WriteError(&c.Controller, 500, "internal server error", nil)
+		var appErr *models.AppError
+		if errors.As(err, &appErr) {
+			status := appErr.Status
+			if status >= 500 {
+				utils.WriteError(&c.Controller, status, "internal server error")
+				return
+			}
+			utils.WriteError(&c.Controller, status, appErr.Message)
+			return
+		}
+
+		utils.WriteError(&c.Controller, 500, "internal server error")
 		return
 	}
 
 	utils.WriteData(&c.Controller, 200, map[string]any{
 		"flights": results,
 		"total":   total,
-		"page":    filters.Page, 
-		"limit":   filters.Limit, 
+		"page":    filters.Page,
+		"limit":   filters.Limit,
 	})
 }
