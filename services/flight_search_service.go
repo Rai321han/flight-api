@@ -36,7 +36,7 @@ func (s *FlightSearchService) SearchFlights(
 		return nil, 0, models.NewAppError(500, "failed to build search query", err)
 	}
 
-	log.Printf("[FlightSearchService] query → %s", string(bodyBytes))
+	log.Printf("[FlightSearchService] executing query → %s", string(bodyBytes))
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -54,16 +54,22 @@ func (s *FlightSearchService) SearchFlights(
 
 	rawBody, err := io.ReadAll(res.Body)
 	if err != nil {
-		return nil, 0, models.NewAppError(502, "search backend response read failed", err)
+		return nil, 0, models.NewAppError(502, "failed to read search backend response", err)
 	}
 
+	// Check HTTP-level error only after consuming the body so the connection
+	// is properly drained regardless of outcome.
 	if res.IsError() {
-		return nil, 0, models.NewAppError(502, "search backend returned an error", fmt.Errorf("ES returned HTTP %s", res.Status()))
+		return nil, 0, models.NewAppError(
+			502,
+			"search backend returned an error",
+			fmt.Errorf("ES status %s: %s", res.Status(), string(rawBody)),
+		)
 	}
 
 	var esResp esSearchResponse
 	if err := json.Unmarshal(rawBody, &esResp); err != nil {
-		return nil, 0, models.NewAppError(502, "search backend response decode failed", err)
+		return nil, 0, models.NewAppError(502, "failed to decode search backend response", err)
 	}
 
 	results := make([]map[string]any, 0, len(esResp.Hits.Hits))
@@ -72,7 +78,8 @@ func (s *FlightSearchService) SearchFlights(
 	}
 
 	total := esResp.Hits.Total.Value
-	log.Printf("[FlightSearchService] returned %d / %d hits", len(results), total)
+	log.Printf("[FlightSearchService] page=%d limit=%d returned=%d total=%d",
+		filters.Page, filters.Limit, len(results), total)
 
 	return results, total, nil
 }
