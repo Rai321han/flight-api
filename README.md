@@ -41,6 +41,8 @@ mv conf/app.conf.example conf/app.conf
 appname = flight-api
 httpport = 8080
 runmode = dev
+# Elasticsearch
+es.host = http://localhost:9200
 ```
 ### 4. Start Elasticsearch and Kibana
 ```bash
