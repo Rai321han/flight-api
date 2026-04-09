@@ -10,14 +10,14 @@ import (
 )
 
 var (
-	esClient *elasticsearch.Client
-	esOnce   sync.Once
+	esClient     *elasticsearch.Client
+	esClientErr  error
+	esOnce       sync.Once
 )
 
 // GetESClient returns a lazily-initialised singleton Elasticsearch client.
+// If initialisation previously failed the cached error is returned immediately.
 func GetESClient() (*elasticsearch.Client, error) {
-	var initErr error
-
 	esOnce.Do(func() {
 		host, _ := beego.AppConfig.String("es.host")
 		if host == "" {
@@ -37,8 +37,8 @@ func GetESClient() (*elasticsearch.Client, error) {
 
 		client, err := elasticsearch.NewClient(cfg)
 		if err != nil {
-			initErr = fmt.Errorf("elasticsearch client init failed: %w", err)
-			log.Printf("[ES] %v", initErr)
+			esClientErr = fmt.Errorf("elasticsearch client init failed: %w", err)
+			log.Printf("[ES] %v", esClientErr)
 			return
 		}
 
@@ -46,8 +46,5 @@ func GetESClient() (*elasticsearch.Client, error) {
 		log.Printf("[ES] Client initialised → %s", host)
 	})
 
-	if initErr != nil {
-		return nil, initErr
-	}
-	return esClient, nil
+	return esClient, esClientErr
 }
