@@ -94,7 +94,8 @@ func applyStringFilters(f *models.FlightFilters, getParam func(string) string) {
 	f.OriginAirport = optionalString(getParam("originAirport"))
 }
 
-// parseBoolParam attempts to parse a boolean query parameter. It returns a pointer to the boolean value if successful, or nil if the parameter is not provided.
+// parseBoolParam attempts to parse a boolean query parameter.
+// It returns a pointer to the boolean value if successful, or nil if the parameter is not provided.
 func parseBoolParam(param string, getParam func(string) string, errs *[]string) *bool {
 	value := strings.TrimSpace(getParam(param))
 	value = strings.TrimSpace(strings.ToLower(value))
@@ -113,6 +114,7 @@ func parseBoolParam(param string, getParam func(string) string, errs *[]string) 
 	return nil
 }
 
+// parseGeoFilters extracts and validates geographic coordinate filters (latitude and longitude) from the query parameters.
 func parseGeoFilters(f *models.FlightFilters, getParam func(string) string, errs *[]string) {
 	f.DestLat, _ = parseOptionalFloat(getParam("destLat"), "destLat", -90, 90, errs)
 	f.DestLon, _ = parseOptionalFloat(getParam("destLon"), "destLon", -180, 180, errs)
@@ -120,6 +122,8 @@ func parseGeoFilters(f *models.FlightFilters, getParam func(string) string, errs
 	f.OriginLon, _ = parseOptionalFloat(getParam("originLon"), "originLon", -180, 180, errs)
 }
 
+// parseSortAndOrder validates the sortBy and order query parameters, ensuring that sortBy is one of the allowed fields and order is either 'asc' or 'desc'.
+// It updates the FlightFilters struct accordingly and appends any validation errors to the errs slice.
 func parseSortAndOrder(f *models.FlightFilters, getParam func(string) string, errs *[]string) {
 	if v := getParam("sortBy"); v != "" {
 		if !allowedSortFields[v] {
@@ -139,6 +143,7 @@ func parseSortAndOrder(f *models.FlightFilters, getParam func(string) string, er
 	}
 }
 
+// parseDateFilters validates and parses the dateFrom and dateTo query parameters, ensuring they are in the correct format and that dateTo is not before dateFrom.
 func parseDateFilters(f *models.FlightFilters, getParam func(string) string, errs *[]string) {
 	if v := getParam("dateFrom"); v != "" {
 		t, err := time.Parse(dateLayout, v)
@@ -163,6 +168,7 @@ func parseDateFilters(f *models.FlightFilters, getParam func(string) string, err
 	}
 }
 
+// parsePriceFilters validates and parses the priceMin and priceMax query parameters, ensuring they are valid numbers and that priceMax is not less than priceMin.
 func parsePriceFilters(f *models.FlightFilters, getParam func(string) string, errs *[]string) {
 	f.PriceMin, _ = parseOptionalFloat(getParam("priceMin"), "priceMin", 0, -1, errs)
 	f.PriceMax, _ = parseOptionalFloat(getParam("priceMax"), "priceMax", 0, -1, errs)
@@ -180,6 +186,7 @@ func parsePriceFilters(f *models.FlightFilters, getParam func(string) string, er
 	}
 }
 
+// parsePaginationFilters validates and parses the limit and page query parameters, ensuring they are positive integers and that limit does not exceed the maximum allowed value.
 func parsePaginationFilters(f *models.FlightFilters, getParam func(string) string, errs *[]string) {
 	if v := getParam("limit"); v != "" {
 		n, err := strconv.Atoi(v)
@@ -202,6 +209,8 @@ func parsePaginationFilters(f *models.FlightFilters, getParam func(string) strin
 	}
 }
 
+// optionalString trims whitespace from the input string and returns a pointer to the string if it is not empty, or nil if it is empty.
+// This is used to handle optional string query parameters in a consistent way.
 func optionalString(v string) *string {
 	v = strings.TrimSpace(v)
 	if v == "" {
@@ -210,6 +219,8 @@ func optionalString(v string) *string {
 	return &v
 }
 
+// parseOptionalFloat attempts to parse an optional float query parameter.
+// It returns a pointer to the float value if successful, or nil if the parameter is not provided or empty.
 func parseOptionalFloat(raw, field string, minVal, maxVal float64, errs *[]string) (*float64, bool) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
