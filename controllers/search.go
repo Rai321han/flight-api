@@ -9,13 +9,30 @@ import (
 	beego "github.com/beego/beego/v2/server/web"
 )
 
+// SearchController struct handles flight search requests.
+// It depends on a FlightService to perform the search logic.
 type SearchController struct {
 	beego.Controller
 	FlightSvc models.FlightService
 }
 
-// SearchFlights handles GET /search endpoint to search for flights based on various filters.
-// It validates query parameters, calls the FlightService to perform the search, and returns the results in a paginated format.
+// SearchFlights handles HTTP GET requests to search for flights.
+// It validates query parameters, calls the FlightService to search flights,
+// and returns the results in JSON format.
+//
+// Query Parameters:
+//   - carrier, flightNum, destCountry, originCountry, destCity, originCity
+//   - destAirportID, originAirportID, destAirport, originAirport
+//   - dateFrom, dateTo (YYYY-MM-DD)
+//   - priceMin, priceMax, cancelled
+//   - destLat, destLon, originLat, originLon
+//   - sortBy (timestamp|AvgTicketPrice), order (asc|desc)
+//   - limit, page
+//
+// Responses:
+//   - 200: JSON containing matching flights, total count, page, and limit.
+//   - 400: Validation error for invalid query parameters.
+//   - 5XX: Internal server error if search processing fails.
 func (c *SearchController) SearchFlights() {
 
 	filters, validationErrs := validators.ParseAndValidateFlightFilters(
