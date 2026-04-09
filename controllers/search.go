@@ -14,11 +14,11 @@ type SearchController struct {
 	FlightSvc models.FlightService
 }
 
-// SearchFlights handles GET /flight-api/v1/search
+// SearchFlights handles GET /search endpoint to search for flights based on various filters.
+// It validates query parameters, calls the FlightService to perform the search, and returns the results in a paginated format.
 func (c *SearchController) SearchFlights() {
 
 	filters, validationErrs := validators.ParseAndValidateFlightFilters(
-		c.Ctx.Request.URL.Query().Get,
 		c.Ctx.Request.URL.Query(),
 	)
 
