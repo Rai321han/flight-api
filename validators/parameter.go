@@ -9,11 +9,13 @@ import (
 	"time"
 )
 
+// allowedSortFields defines which fields can be used for sorting results.
 var allowedSortFields = map[string]bool{
 	"AvgTicketPrice": true,
 	"timestamp":      true,
 }
 
+// allowedParams defines which query parameters are accepted by the search endpoint. Any parameter not in this list will cause a validation error.
 var allowedParams = map[string]bool{
 	"carrier": true, "flightNum": true,
 	"destCountry": true, "originCountry": true,
@@ -38,8 +40,9 @@ const (
 	dateLayout    = "2006-01-02"
 )
 
+// ParseAndValidateFlightFilters takes the raw query parameters from the request, validates them, and constructs a FlightFilters struct that can be used by the FlightService.
+// It returns any validation errors encountered during parsing.
 func ParseAndValidateFlightFilters(
-	getParam func(string) string,
 	query url.Values,
 ) (*models.FlightFilters, []string) {
 	errs := validateAllowedQueryParams(query)
@@ -51,11 +54,13 @@ func ParseAndValidateFlightFilters(
 		Page:   defaultPage,
 	}
 
-	applyStringFilters(f, getParam)
-	parseDateFilters(f, getParam, &errs)
-	parsePriceFilters(f, getParam, &errs)
-	parsePaginationFilters(f, getParam, &errs)
-	parseSortAndOrder(f, getParam, &errs)
+	applyStringFilters(f, query.Get)
+	f.Cancelled = parseBoolParam("cancelled", query.Get, &errs)
+	parseDateFilters(f, query.Get, &errs)
+	parsePriceFilters(f, query.Get, &errs)
+	parsePaginationFilters(f, query.Get, &errs)
+	parseSortAndOrder(f, query.Get, &errs)
+	parseGeoFilters(f, query.Get, &errs)
 
 	if len(errs) > 0 {
 		return nil, errs
@@ -63,6 +68,8 @@ func ParseAndValidateFlightFilters(
 	return f, nil
 }
 
+// validateAllowedQueryParams checks if any query parameters are present that are not in the allowedParams list.
+// It returns a slice of error messages for any unsupported parameters found.
 func validateAllowedQueryParams(query url.Values) []string {
 	var errs []string
 	for key := range query {
@@ -73,6 +80,7 @@ func validateAllowedQueryParams(query url.Values) []string {
 	return errs
 }
 
+// applyStringFilters extracts string-based filters from the query parameters and assigns them to the FlightFilters struct.
 func applyStringFilters(f *models.FlightFilters, getParam func(string) string) {
 	f.Carrier = optionalString(getParam("carrier"))
 	f.FlightNum = optionalString(getParam("flightNum"))
@@ -84,6 +92,32 @@ func applyStringFilters(f *models.FlightFilters, getParam func(string) string) {
 	f.OriginAirportID = optionalString(getParam("originAirportID"))
 	f.DestAirport = optionalString(getParam("destAirport"))
 	f.OriginAirport = optionalString(getParam("originAirport"))
+}
+
+// parseBoolParam attempts to parse a boolean query parameter. It returns a pointer to the boolean value if successful, or nil if the parameter is not provided.
+func parseBoolParam(param string, getParam func(string) string, errs *[]string) *bool {
+	value := strings.TrimSpace(getParam(param))
+	value = strings.TrimSpace(strings.ToLower(value))
+	if value == "" {
+		return nil
+	}
+	if value == "true" {
+		v := true
+		return &v
+	}
+	if value == "false" {
+		v := false
+		return &v
+	}
+	*errs = append(*errs, fmt.Sprintf("%s must be true or false", param))
+	return nil
+}
+
+func parseGeoFilters(f *models.FlightFilters, getParam func(string) string, errs *[]string) {
+	f.DestLat, _ = parseOptionalFloat(getParam("destLat"), "destLat", -90, 90, errs)
+	f.DestLon, _ = parseOptionalFloat(getParam("destLon"), "destLon", -180, 180, errs)
+	f.OriginLat, _ = parseOptionalFloat(getParam("originLat"), "originLat", -90, 90, errs)
+	f.OriginLon, _ = parseOptionalFloat(getParam("originLon"), "originLon", -180, 180, errs)
 }
 
 func parseSortAndOrder(f *models.FlightFilters, getParam func(string) string, errs *[]string) {
