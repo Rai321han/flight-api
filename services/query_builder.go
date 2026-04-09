@@ -87,9 +87,7 @@ func buildTermFilters(f *models.FlightFilters) []map[string]any {
 			continue
 		}
 		key := tf.esField
-		if tf.keyword {
-			key += ".keyword"
-		}
+	
 		clauses = append(clauses, map[string]any{
 			"term": map[string]any{key: *tf.value},
 		})
